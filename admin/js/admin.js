@@ -1,0 +1,161 @@
+document.addEventListener('DOMContentLoaded', function () {
+    function openMediaPicker(button, multiple) {
+        if (typeof wp === 'undefined' || !wp.media) {
+            return;
+        }
+
+        const target = document.getElementById(button.dataset.target);
+        if (!target) {
+            return;
+        }
+
+        const frame = wp.media({
+            title: cpsAdmin.mediaTitle || 'Select image',
+            multiple: multiple,
+            library: { type: 'image' }
+        });
+
+        if (multiple) {
+            frame.on('open', function () {
+                const selection = frame.state().get('selection');
+                const selectedIds = target.value.split(',').map(function (id) {
+                    return parseInt(id, 10);
+                }).filter(Boolean);
+
+                selectedIds.forEach(function (id) {
+                    selection.add(wp.media.attachment(id));
+                });
+            });
+        }
+
+        frame.on('select', function () {
+            const selection = frame.state().get('selection');
+
+            if (multiple) {
+                const ids = selection.map(function (attachment) {
+                    return attachment.id;
+                });
+
+                target.value = ids.join(',');
+
+                const previewWrap = document.getElementById(button.dataset.preview);
+                console.log(previewWrap);
+                if (previewWrap) {
+                    previewWrap.innerHTML = '';
+                    selection.each(function (attachment) {
+                        const img = document.createElement('img');
+                        img.src = attachment.attributes.url;
+                        img.alt = attachment.attributes.title || '';
+                        img.className = 'cps-gallery-thumb';
+                        previewWrap.appendChild(img);
+                    });
+                }
+                return;
+            }
+
+            const attachment = selection.first();
+            if (!attachment) {
+                return;
+            }
+
+            target.value = attachment.id;
+
+            const preview = document.getElementById(button.dataset.preview);
+            // preview.style.display='block';
+            if (preview) {
+                const sizes = attachment.attributes.sizes || {};
+                preview.src = sizes.thumbnail ? sizes.thumbnail.url : attachment.attributes.url;
+                preview.hidden = false;
+            }
+        });
+
+        frame.open();
+    }
+
+    document.querySelectorAll('.cps-media-button').forEach(function (button) {
+        button.addEventListener('click', function () {
+            openMediaPicker(button, button.dataset.multiple === 'true');
+        });
+    });
+
+    document.addEventListener('click', function (event) {
+        const button = event.target.closest('.cps-source-icon-button');
+        if (button) {
+            event.preventDefault();
+            openMediaPicker(button, false);
+        }
+    });
+
+    function addRepeatableRow(groupName) {
+        const group = document.querySelector('[data-repeatable-group="' + groupName + '"]');
+        if (!group) {
+            return;
+        }
+
+        let nextIndex = 0;
+        group.querySelectorAll('input[name^="cps_' + groupName + '["]').forEach(function (input) {
+            const match = input.name.match(/\[(\d+)\]/);
+            if (match) {
+                nextIndex = Math.max(nextIndex, parseInt(match[1], 10) + 1);
+            }
+                });
+        const item = document.createElement('div');
+        item.className = 'cps-repeatable-item';
+
+        const inputs = groupName === 'features'
+            ? '<input type="text" name="cps_features[' + nextIndex + '][label]" value="" placeholder="Label" />' +
+              '<input type="text" name="cps_features[' + nextIndex + '][value]" value="" placeholder="Value" />' +
+              '<input type="text" name="cps_features[' + nextIndex + '][icon]" value="" placeholder="Icon class" />'
+            : '<input type="text" name="cps_source_urls[' + nextIndex + '][title]" value="" placeholder="Title" />' +
+              '<div class="cps-source-icon-picker">' +
+              '<input type="hidden" id="cps_source_icon_' + nextIndex + '" name="cps_source_urls[' + nextIndex + '][icon]" value="" />' +
+              '<img id="cps_source_icon_preview_' + nextIndex + '" class="cps-source-icon-preview" alt="" hidden />' +
+              '<button type="button" class="button cps-source-icon-button" data-target="cps_source_icon_' + nextIndex + '" data-preview="cps_source_icon_preview_' + nextIndex + '">Select Icon</button>' +
+              '</div>' +
+              '<input type="url" name="cps_source_urls[' + nextIndex + '][url]" value="" placeholder="https://" />';
+
+        item.innerHTML = '<div class="cps-repeatable-row">' + inputs +
+            '<button type="button" class="button cps-remove-item">Remove</button>' +
+            '</div>';
+
+        group.appendChild(item);
+
+        item.querySelector('.cps-remove-item').addEventListener('click', function () {
+            item.remove();
+        });
+    }
+
+    document.querySelectorAll('.cps-add-item').forEach(function (button) {
+        button.addEventListener('click', function () {
+            addRepeatableRow(button.dataset.repeatable);
+        });
+    });
+
+    document.querySelectorAll('.cps-remove-item').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const item = button.closest('.cps-repeatable-item');
+            if (item) {
+                item.remove();
+            }
+        });
+    });
+
+    jQuery(function ($) {
+        $('.cps-color-picker').wpColorPicker();
+    });
+
+    jQuery(document).ready(function ($) {
+        const $storeFields = $('#cps-store-conditional-fields');
+        const $storeInputs = $storeFields.find('input');
+
+        function updateStoreFields() {
+            const available = $('input[name="cps_store_available"]:checked').val() === 'yes';
+            $storeFields.stop(true, true)[available ? 'slideDown' : 'slideUp'](200);
+            $storeInputs.prop('required', available);
+        }
+
+        $('input[name="cps_store_available"]').on('change', updateStoreFields);
+        updateStoreFields();
+    });
+
+});
