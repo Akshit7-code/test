@@ -57,3 +57,10 @@ add_action( 'plugins_loaded', 'cps_load_plugin' );
 
 
 // hey i am khushi 
+
+
+// function cps_deactivate_plugin() {
+//     if ( function_exists( 'flush_rewrite_rules' ) ) {
+//         flush_rewrite_rules();
+//     }
+// }
